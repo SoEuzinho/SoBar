@@ -21,7 +21,8 @@ public sealed class InfrastructureTests : IDisposable
             Assert.False(s.StartWithWindows);
             s.Theme = "Midnight"; s.Size = "Grande"; s.WidgetScales["clock"] = 1.5;
             app.Save(s);
-            app.SaveProfile("Trabalho");
+            s.WidgetGroups["cpu"] = s.WidgetGroups["ram"] = "Sistema";
+            app.Save(s); app.SaveProfile("Trabalho");
             s.Theme = "Claro"; app.Save(s);
         }
         using var restored = new AppServices(_dir);
@@ -29,6 +30,22 @@ public sealed class InfrastructureTests : IDisposable
         restored.LoadProfile("Trabalho");
         Assert.Equal("Midnight",restored.Settings.Theme);
         Assert.Equal(1.5,restored.Settings.WidgetScales["clock"]);
+        Assert.Equal("Sistema", restored.Settings.WidgetGroups["ram"]);
+        Assert.Equal(["clock","cpu","ram"], restored.Settings.Widgets);
+        var file = Path.Combine(_dir,"layout.json");
+        restored.Export(file); restored.Save(new AppSettings()); restored.Import(file);
+        Assert.Equal("Sistema", restored.Settings.WidgetGroups["cpu"]);
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("   ")]
+    [InlineData("a\nb")]
+    [InlineData("012345678901234567890123456789012")]
+    public void WidgetGroupNamesAreBoundedAndSingleLine(string value)
+    {
+        var settings = new AppSettings { WidgetGroups = { ["clock"] = value } };
+        Assert.Throws<InvalidDataException>(settings.Validate);
     }
 
     [Fact]

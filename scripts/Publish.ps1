@@ -19,6 +19,7 @@ Push-Location $root
 try {
     RunDotnet @('publish','src/SoBar.App','-c','Release','-r','win-x64','--self-contained','true','-p:DebugType=None','-p:DebugSymbols=false',"-p:Version=$Version",'-o',$payload)
     Copy-Item 'docs/THIRD_PARTY.md' $payload
+    & "$PSScriptRoot/Collect-Notices.ps1" -Payload $payload -Assets 'src/SoBar.App/obj/project.assets.json'
     RunDotnet @('tool','restore')
     $dirs = [Collections.Generic.List[string]]::new()
     $components = [Collections.Generic.List[string]]::new()

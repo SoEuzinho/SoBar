@@ -10,7 +10,7 @@ using SoBar.Plugins;
 
 namespace SoBar.Infrastructure;
 
-public sealed class AppServices : IDisposable
+public sealed partial class AppServices : IDisposable
 {
     private static readonly Lazy<bool> NativeSqlite = new(() => {
         SQLitePCL.raw.SetProvider(new SQLitePCL.SQLite3Provider_winsqlite3());

@@ -1,7 +1,7 @@
 <Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
   <Package Name="SoBar" Manufacturer="SoBar" Version="$(var.Version)" Language="1046"
            UpgradeCode="28F56D0E-874B-48B7-AFBA-F148F7B583AE" Scope="perUser" InstallerVersion="500" Compressed="yes">
-    <MajorUpgrade DowngradeErrorMessage="Uma versão mais recente do SoBar já está instalada." />
+    <MajorUpgrade Schedule="afterInstallExecute" DowngradeErrorMessage="Uma versão mais recente do SoBar já está instalada." />
     <MediaTemplate EmbedCab="yes" CompressionLevel="high" />
     <StandardDirectory Id="LocalAppDataFolder">
       <Directory Id="ProgramsDir" Name="Programs"><Directory Id="INSTALLFOLDER" Name="SoBar" /></Directory>

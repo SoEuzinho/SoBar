@@ -49,6 +49,7 @@ internal sealed class CenterModel : Observable, IDisposable
                 items.InsertRange(0, _services.History().Select(h => new CenterResult(h, "Busca recente", "\uE81C", "history")));
                 Results = items; Status = "Pesquise aplicativos e arquivos ou selecione um comando."; return;
             }
+            Results = [];
             Status = "Pesquisando…";
             await Task.Delay(180, source.Token);
             var hits = await _services.SearchAsync(text, source.Token);

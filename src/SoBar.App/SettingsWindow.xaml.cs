@@ -22,14 +22,21 @@ public partial class SettingsWindow : Window
     {
         _shell = shell;
         InitializeComponent();
+        Status.Text = shell.ShortcutStatus;
+        var glyphs = new[] { "\uE771", "\uE7F4", "\uECA5", "\uE8F1", "\uE774" };
         foreach (var name in new[] { "Aparência", "Barra", "Widgets", "Perfis", "Conexões" })
         {
             var tab = Presentation.Button(name, () => ShowPage(name));
+            var navLabel = new StackPanel { Orientation = Orientation.Horizontal };
+            var glyph = new TextBlock { Text = glyphs[_nav.Count], FontSize = 14, VerticalAlignment = VerticalAlignment.Center, FontFamily = new FontFamily("Segoe MDL2 Assets"), Margin = new Thickness(0,0,8,0) };
+            glyph.SetResourceReference(ForegroundProperty, "Muted");
+            navLabel.Children.Add(glyph); navLabel.Children.Add(new TextBlock { Text=name }); tab.Content=navLabel;
+            AutomationProperties.SetName(tab,name);
             tab.Margin = new Thickness(0,1,2,2);
             tab.HorizontalContentAlignment = HorizontalAlignment.Left;
             _nav[name] = tab; Nav.Children.Add(tab);
         }
-        SizeChanged += (_, _) => { NavColumn.Width = new GridLength(ActualWidth < 560 ? 103 : 157); };
+        SizeChanged += (_, _) => { NavColumn.Width = new GridLength(ActualWidth < 560 ? 131 : 157); };
         PreviewKeyDown += (_, e) => { if (e.Key == Key.Escape) Close(); };
         ShowPage("Aparência");
     }
@@ -95,13 +102,35 @@ public partial class SettingsWindow : Window
             draft.Validate();
             Presentation.ParseShortcut(draft.Shortcut);
             _shell.Services.Save(draft); _shell.Reconfigure();
-            Status.Text = "Alterações salvas.";
+            Status.Text = "Salvo   ·   " + _shell.ShortcutStatus;
         });
     }
     private void Appearance()
     {
         SectionHeading("Tema");
-        Choices([("Escuro","Black"),("Claro","White"),("Midnight","Midnight"),("Liquid Glass","Liquid Glass"),("iOS Glass","iOS Glass")], S.Theme, (s,x) => s.Theme = x);
+        var themes = Row();
+        foreach (var (id, label, baseColor, endColor) in new[] {
+            ("Escuro","Black","#14201A","#283A2F"), ("Claro","White","#F4F7F3","#C1D2CA"),
+            ("Midnight","Midnight","#141B31","#3D4C81"), ("Liquid Glass","Liquid Glass","#193735","#638A7C"),
+            ("iOS Glass","iOS Glass","#CBDCF2","#9ABCB9") })
+        {
+            var chip = Presentation.Button(label, () => { if (Change(s => s.Theme = id)) ShowPage(_section); });
+            chip.Padding = new Thickness(5);
+            chip.Margin = new Thickness(0,0,5,5);
+            var sample = new StackPanel { Width = 79 };
+            var preview = new Grid { Height = 34 };
+            var colorA = (Color)ColorConverter.ConvertFromString(baseColor);
+            var colorB = (Color)ColorConverter.ConvertFromString(endColor);
+            preview.Children.Add(new Border { Background = new LinearGradientBrush(colorA,colorB,22), CornerRadius = new CornerRadius(4) });
+            var strip = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment=VerticalAlignment.Center };
+            foreach (var width in new[] { 8d, 17d, 8d })
+                strip.Children.Add(new Border { Width=width, Height=5, CornerRadius=new CornerRadius(3), Background=id is "Claro" or "iOS Glass" ? Brushes.DarkSlateGray : Brushes.WhiteSmoke, Opacity=.78, Margin=new Thickness(1.5,0,1.5,0) });
+            preview.Children.Add(strip); sample.Children.Add(preview);
+            sample.Children.Add(new TextBlock { Text = label, FontSize = 12, Margin = new Thickness(2,5,2,1) });
+            chip.Content = sample; AutomationProperties.SetName(chip, label);
+            if (id == S.Theme) chip.SetResourceReference(BorderBrushProperty,"Accent");
+            themes.Children.Add(chip);
+        }
         SectionHeading("Tamanho");
         Choices([("Compacto","Compacto"),("Normal","Normal"),("Grande","Grande")], S.Size, (s,x) => s.Size = x);
         SectionHeading("Cor de destaque");
@@ -160,7 +189,7 @@ public partial class SettingsWindow : Window
     }
     private void Widgets()
     {
-        Hint("Arraste um widget ativo para mudar sua posição ou use as setas. A escala é individual.");
+        Hint("Arraste os widgets ou use as setas para ordenar. Widgets vizinhos com o mesmo nome de grupo ficam no mesmo bloco.");
         SectionHeading("Layout da barra");
         foreach (var id in S.Widgets.Where(WidgetService.Catalog.ContainsKey))
         {
@@ -181,7 +210,32 @@ public partial class SettingsWindow : Window
             var scale = new ComboBox { ItemsSource = factors.Select(x => $"{x * 100:F0}%"), SelectedIndex = Array.IndexOf(factors,S.WidgetScales.GetValueOrDefault(id,1d)), VerticalAlignment = VerticalAlignment.Center, MinWidth = 58, ToolTip = "Escala de " + WidgetService.Catalog[id] };
             scale.SelectionChanged += (_,_) => { if (scale.SelectedIndex >= 0) Change(s => s.WidgetScales[id] = factors[scale.SelectedIndex]); };
             line.Children.Add(scale);
+            var group = Input(line, S.WidgetGroups.GetValueOrDefault(id) ?? "", "Grupo de " + WidgetService.Catalog[id], 100);
+            group.MaxLength = 32;
+            Add(line,"Definir grupo",() => {
+                if (Change(s => {
+                    var name = group.Text.Trim();
+                    if (name.Length == 0) s.WidgetGroups.Remove(id); else s.WidgetGroups[id] = name;
+                })) ShowPage(_section);
+            });
             Add(line,"Remover",() => { if (Change(s => s.Widgets.Remove(id))) ShowPage(_section); });
+        }
+        var groups = S.WidgetGroups.Values.Distinct().OrderBy(x => x).ToArray();
+        if (groups.Length > 0) SectionHeading("Nomes dos grupos");
+        foreach (var name in groups)
+        {
+            var row = Row();
+            var box = Input(row,name,"Renomear grupo " + name);
+            box.MaxLength = 32;
+            void Rename(string target)
+            {
+                if (Change(s => {
+                    foreach (var entry in s.WidgetGroups.Where(p => p.Value == name).ToArray())
+                        if (target.Length == 0) s.WidgetGroups.Remove(entry.Key); else s.WidgetGroups[entry.Key] = target;
+                })) ShowPage(_section);
+            }
+            Add(row,"Renomear",() => Rename(box.Text.Trim()));
+            Add(row,"Desagrupar",() => Rename(""));
         }
         SectionHeading("Adicionar à barra");
         var available = Row();
@@ -200,7 +254,8 @@ public partial class SettingsWindow : Window
         foreach (var name in _shell.Services.Profiles())
             Add(names,name,() => _shell.Execute(() => { _shell.Services.LoadProfile(name); _shell.Reconfigure(); ShowPage(_section); Status.Text = "Perfil carregado • " + name; }));
         var save = Row(); var input = Input(save,"","Nome do perfil");
-        Add(save,"Salvar perfil",() => _shell.Execute(() => { _shell.Services.SaveProfile(input.Text.Trim()); ShowPage(_section); Status.Text = "Perfil salvo."; }));
+        Add(save,"Salvar perfil",() => _shell.Execute(() => { _shell.Services.SaveProfile(input.Text.Trim()); _shell.Reconfigure(); ShowPage(_section); Status.Text = "Perfil salvo."; }));
+        ContextRules();
         SectionHeading("Transferir configurações");
         var transfer = Row();
         Add(transfer,"Exportar…",() => {

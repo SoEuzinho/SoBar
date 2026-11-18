@@ -9,6 +9,9 @@ namespace SoBar.Windows;
 public sealed class DesktopBarHost : IDisposable
 {
     private const int EmergencyId = 0x6011;
+    // All bars of a desktop session share a WPF dispatcher. Keep ownership on live HWNDs
+    // so hotkeys survive removal of the monitor that registered them first.
+    [ThreadStatic] private static List<DesktopBarHost>? activeHosts;
     private readonly Window window;
     private readonly Action emergencyExit;
     private readonly Action openCenter;
@@ -69,8 +72,15 @@ public sealed class DesktopBarHost : IDisposable
         if (commandRegistered && modifiers == commandModifiers && key == commandKey) return true;
         if (hwnd != 0)
         {
+            if (!commandRegistered && activeHosts?.Any(h => h != this && h.commandRegistered) == true)
+            {
+                commandKey = key;
+                commandModifiers = modifiers;
+                return false;
+            }
             int id = commandId == 0x6012 ? 0x6013 : 0x6012;
-            if (!Native.RegisterHotKey(hwnd, id, (uint)modifiers | 0x4000, (uint)KeyInterop.VirtualKeyFromKey(key))) return false;
+            if (!Native.RegisterHotKey(hwnd, id, (uint)modifiers | 0x4000, (uint)KeyInterop.VirtualKeyFromKey(key)))
+                return false;
             if (commandRegistered) Native.UnregisterHotKey(hwnd, commandId);
             commandId = id;
             commandRegistered = true;
@@ -88,11 +98,18 @@ public sealed class DesktopBarHost : IDisposable
         hwnd = handle;
         source = HwndSource.FromHwnd(hwnd);
         source?.AddHook(Hook);
-        EmergencyHotkeyRegistered = Native.RegisterHotKey(hwnd, EmergencyId, 0x4007, (uint)KeyInterop.VirtualKeyFromKey(Key.End));
-        SetCommandHotkey(commandModifiers, commandKey);
+        (activeHosts ??= []).Add(this);
+        AcquireHotkeys();
         Layout();
         // WPF applies its initial window placement after SourceInitialized.
         QueueLayout();
+    }
+
+    private void AcquireHotkeys()
+    {
+        if (!EmergencyHotkeyRegistered)
+            EmergencyHotkeyRegistered = Native.RegisterHotKey(hwnd, EmergencyId, 0x4007, (uint)KeyInterop.VirtualKeyFromKey(Key.End));
+        if (!commandRegistered) SetCommandHotkey(commandModifiers, commandKey);
     }
 
     private void QueueLayout()
@@ -227,7 +244,7 @@ public sealed class DesktopBarHost : IDisposable
                 handled = true;
                 return 3;
             case 0x0312: // WM_HOTKEY
-                if (wParam == EmergencyId) { handled = true; window.Dispatcher.BeginInvoke(emergencyExit); }
+                if (EmergencyHotkeyRegistered && wParam == EmergencyId) { handled = true; window.Dispatcher.BeginInvoke(emergencyExit); }
                 else if (commandRegistered && wParam == commandId) { handled = true; window.Dispatcher.BeginInvoke(openCenter); }
                 break;
             case 0x007e: // WM_DISPLAYCHANGE
@@ -258,8 +275,24 @@ public sealed class DesktopBarHost : IDisposable
         disposed = true;
         timer.Stop();
         timer.Tick -= Tick;
+        bool transferCommand = commandRegistered;
+        bool ownedHotkeys = transferCommand || EmergencyHotkeyRegistered;
         if (commandRegistered) Native.UnregisterHotKey(hwnd, commandId);
         if (EmergencyHotkeyRegistered) Native.UnregisterHotKey(hwnd, EmergencyId);
+        commandRegistered = EmergencyHotkeyRegistered = false;
+        activeHosts?.Remove(this);
+        if (ownedHotkeys && activeHosts != null)
+        {
+            foreach (var remaining in activeHosts)
+            {
+                if (transferCommand && !remaining.commandRegistered)
+                {
+                    remaining.commandModifiers = commandModifiers;
+                    remaining.commandKey = commandKey;
+                }
+                remaining.AcquireHotkeys();
+            }
+        }
         ReleaseBar();
         source?.RemoveHook(Hook);
         window.SourceInitialized -= OnSourceInitialized;

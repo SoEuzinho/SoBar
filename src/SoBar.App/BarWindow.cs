@@ -22,15 +22,21 @@ internal sealed class BarWindow : Window
     private readonly StackPanel _widgets = new();
     private readonly Button _launcher;
     private readonly Button _settings;
+    public bool RequestedShortcutAvailable { get; private set; }
+    public bool EmergencyAvailable => _host?.EmergencyHotkeyRegistered == true;
     private bool _vertical;
+    private readonly Dictionary<string, FrameworkElement> _widgetTiles = new();
+    internal string[] VisibleGroupNames => _widgets.Children.OfType<Border>().Select(group => (string)group.Tag).ToArray();
     private readonly Dictionary<string, TextBlock> _pluginLabels = new();
     private AppSettings _settingsSnapshot = new();
     private string? _widgetSignature;
     private string? _appSignature;
-    public bool HasClock => _widgets.Children.OfType<FrameworkElement>().Any(x => Equals(x.Tag, "clock"));
+    public string? ClockText => (_widgetTiles.GetValueOrDefault("clock") is Button { Content: TextBlock clock }) ? clock.Text : null;
+    public bool HasClock => _widgetTiles.ContainsKey("clock");
     public BarWindow(Shell shell, string monitorId)
     {
         Title = "SoBar";
+        Style = (Style)FindResource(typeof(Window));
         WindowStyle = WindowStyle.None;
         ResizeMode = ResizeMode.NoResize;
         ShowInTaskbar = false;
@@ -69,6 +75,7 @@ internal sealed class BarWindow : Window
     }
     public void Configure(AppSettings s, IReadOnlyList<PluginTile> plugins)
     {
+        Presentation.Apply(s, Resources);
         _settingsSnapshot = s;
         _vertical = s.Edge is "Left" or "Right";
         var orientation = _vertical ? Orientation.Vertical : Orientation.Horizontal;
@@ -102,20 +109,30 @@ internal sealed class BarWindow : Window
         widgetsView.Unloaded += (_, _) => SizeChanged -= onResize;
         LimitWidgets();
         _appSignature = null;
-        var widgetKey = string.Join(",", s.Widgets.Select(id => $"{id}:{s.WidgetScales.GetValueOrDefault(id,1d)}")) + "/" + string.Join(",", plugins.Select(p => p.Id + ":" + p.Value));
+        var widgetKey = orientation + "/" + string.Join("\n", s.Widgets.Select(id => $"{id}:{s.WidgetScales.GetValueOrDefault(id,1d)}:{s.WidgetGroups.GetValueOrDefault(id)}")) + "/" + string.Join(",", plugins.Select(p => p.Id + ":" + p.Value));
         if (_widgetSignature != widgetKey)
         {
             _widgets.Children.Clear();
             _pluginLabels.Clear();
+            _widgetTiles.Clear();
+            string? previousGroup = null;
+            var container = _widgets;
             foreach (var id in s.Widgets)
             {
                 if (!SoBar.Widgets.WidgetService.Catalog.ContainsKey(id)) continue;
+                var group = s.WidgetGroups.GetValueOrDefault(id);
+                if (group != previousGroup)
+                {
+                    container = group == null ? _widgets : AddGroup(group, orientation);
+                    previousGroup = group;
+                }
                 var tile = _shell.Widgets.CreateTile(id);
+                _widgetTiles[id] = tile;
                 tile.Tag = id;
                 var scale = s.WidgetScales.GetValueOrDefault(id,1d);
                 tile.LayoutTransform = new ScaleTransform(scale,scale);
                 tile.VerticalAlignment = VerticalAlignment.Center;
-                _widgets.Children.Add(tile);
+                container.Children.Add(tile);
             }
             foreach (var plugin in plugins)
             {
@@ -128,8 +145,34 @@ internal sealed class BarWindow : Window
         var factor = s.Size switch { "Compacto" => .85, "Grande" => 1.2, _ => 1d };
         _layout.LayoutTransform = new ScaleTransform(factor, factor);
         _host?.Configure(MonitorId, s.Edge, s.ReserveSpace, s.AutoHide, s.HideFullscreen, (int)Math.Round((_vertical ? 100 : 56) * factor));
-        var gesture = Presentation.ParseShortcut(s.Shortcut);
-        _host?.SetCommandHotkey(gesture.Modifiers, gesture.Key);
+        try
+        {
+            var gesture = Presentation.ParseShortcut(s.Shortcut);
+            RequestedShortcutAvailable = _host?.SetCommandHotkey(gesture.Modifiers, gesture.Key) == true;
+        }
+        catch (Exception ex) when (ex is FormatException or NotSupportedException or ArgumentException)
+        {
+            RequestedShortcutAvailable = false;
+            _shell.Services.Log("Atalho indisponível; a central continua acessível pela barra.");
+        }
+    }
+    private StackPanel AddGroup(string name, Orientation orientation)
+    {
+        var group = new StackPanel { Orientation = orientation };
+        var label = new TextBlock {
+            Text = name, FontSize = 11, FontWeight = FontWeights.SemiBold, Margin = new Thickness(5,1,3,1),
+            MaxWidth = 75, TextTrimming = TextTrimming.CharacterEllipsis, VerticalAlignment = VerticalAlignment.Center
+        };
+        label.SetResourceReference(TextBlock.ForegroundProperty, "Muted");
+        group.Children.Add(label);
+        var frame = new Border { Child = group, Tag = name, ToolTip = name,
+            CornerRadius = new CornerRadius(7), BorderThickness = new Thickness(1), Margin = new Thickness(2),
+            VerticalAlignment = VerticalAlignment.Center };
+        frame.SetResourceReference(Border.BorderBrushProperty, "Line");
+        frame.SetResourceReference(Border.BackgroundProperty, "Surface");
+        AutomationProperties.SetName(frame, "Grupo " + name);
+        _widgets.Children.Add(frame);
+        return group;
     }
     public void UpdatePlugins(IReadOnlyList<PluginTile> plugins)
     {

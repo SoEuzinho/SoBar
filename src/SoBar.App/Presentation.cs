@@ -31,11 +31,11 @@ internal static class Presentation
         button.Click += (_, _) => action();
         return button;
     }
-    public static void Apply(AppSettings settings)
+    public static void Apply(AppSettings settings, ResourceDictionary? target = null)
     {
         var light = settings.Theme is "Claro" or "iOS Glass";
         var midnight = settings.Theme == "Midnight";
-        var resources = Application.Current.Resources;
+        var resources = target ?? Application.Current.Resources;
         void ColorBrush(string id, string value)
         {
             var brush = new SolidColorBrush((Color)ColorConverter.ConvertFromString(value));

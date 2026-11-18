@@ -8,7 +8,7 @@ using SoBar.Windows;
 
 namespace SoBar.App;
 
-internal sealed class Shell : IDisposable
+internal sealed partial class Shell : IDisposable
 {
     public AppServices Services { get; }
     public WidgetService Widgets { get; }
@@ -21,6 +21,10 @@ internal sealed class Shell : IDisposable
     private int _samples;
     private string _monitorSignature = "";
     private IReadOnlyList<PluginTile> _plugins = [];
+    private IReadOnlyList<DesktopWindow> _windows = [];
+    private readonly Dictionary<BarWindow, AppSettings> _applied = [];
+    private ContextProfiles? _contexts;
+    private bool _refreshing;
     private bool _disposed;
     public Shell(AppServices services, WidgetService widgets, DesktopWindowService desktop, Action exit)
     {
@@ -28,17 +32,19 @@ internal sealed class Shell : IDisposable
         Widgets = widgets;
         Desktop = desktop;
         Exit = exit;
-        _poll.Tick += (_, _) => Refresh();
+        _poll.Tick += async (_, _) => await RefreshAsync();
     }
     public void Start()
     {
         Reconfigure();
-        Refresh();
+        _ = RefreshAsync();
         _poll.Start();
     }
     public void Reconfigure()
     {
-        var s = Services.Settings;
+        _contexts = Services.ReadContextProfiles();
+        _applied.Clear();
+        var s = _contexts.Default;
         Presentation.Apply(s);
         var monitors = DesktopBarHost.Monitors();
         _monitorSignature = string.Join("|", monitors.Select(x => x.Id));
@@ -56,25 +62,53 @@ internal sealed class Shell : IDisposable
                 _bars.Add(bar);
                 bar.Show();
             }
-            bar.Configure(s, _plugins);
         }
-        Refresh();
+        ApplyToBars();
     }
-    private void Refresh()
+    private async Task RefreshAsync()
     {
-        if (_disposed) return;
-        if (++_samples % 8 == 0 && _monitorSignature != string.Join("|", DesktopBarHost.Monitors().Select(x => x.Id)))
+        if (_disposed || _refreshing) return;
+        _refreshing = true;
+        try
         {
-            Reconfigure();
-            return;
+            var windows = await Task.Run(Desktop.List);
+            if (_disposed) return;
+            _windows = windows;
+            if (++_samples % 8 == 0)
+            {
+                if (_monitorSignature != string.Join("|", DesktopBarHost.Monitors().Select(x => x.Id)))
+                {
+                    Reconfigure();
+                    return;
+                }
+                if (_plugins.Count != 0)
+                {
+                    _plugins = Services.PluginTiles();
+                    foreach (var bar in _bars) bar.UpdatePlugins(_plugins);
+                }
+            }
+            ApplyToBars();
         }
-        if (_plugins.Count != 0 && _samples % 8 == 0)
+        catch (Exception error) when (error is not OutOfMemoryException)
         {
-            _plugins = Services.PluginTiles();
-            foreach (var bar in _bars) bar.UpdatePlugins(_plugins);
+            if (!_disposed) Services.Log("Falha ao atualizar a barra: " + error.GetType().Name);
         }
-        var windows = Desktop.List();
-        foreach (var bar in _bars) bar.UpdateApps(windows);
+        finally { _refreshing = false; }
+    }
+    private void ApplyToBars()
+    {
+        if (_contexts == null) return;
+        var foreground = _windows.FirstOrDefault(w => w.IsActive);
+        foreach (var bar in _bars)
+        {
+            var settings = _contexts.Resolve(bar.MonitorId, foreground?.MonitorId, foreground?.ExecutablePath);
+            if (!_applied.TryGetValue(bar, out var previous) || !ReferenceEquals(previous, settings))
+            {
+                bar.Configure(settings, _plugins);
+                _applied[bar] = settings;
+            }
+            bar.UpdateApps(_windows);
+        }
     }
     public bool Execute(Action action)
     {
@@ -86,6 +120,8 @@ internal sealed class Shell : IDisposable
             return false;
         }
     }
+    public string ShortcutStatus => (_bars.Any(b => b.RequestedShortcutAvailable) ? "Central • " + Services.Settings.Shortcut : "Atalho da central indisponível") +
+        (_bars.Any(b => b.EmergencyAvailable) ? "   |   Saída • Ctrl+Alt+Shift+End" : "   |   Saída • menu SoBar");
     public void OpenCenter()
     {
         if (_center == null)
@@ -115,7 +151,9 @@ internal sealed class Shell : IDisposable
     public async Task VerifySmokeAsync(string? capturePath)
     {
         var bars = _bars.Count;
+        VerifyContextProfile();
         if (bars == 0 || _bars.Any(x => !x.IsLoaded || x.ActualHeight < 1 || !x.HasClock)) throw new InvalidOperationException("Barra ou relógio ausente");
+        if (_bars.Any(bar => !TimeOnly.TryParse(bar.ClockText, out _))) throw new InvalidOperationException("O relógio não forneceu um horário.");
         foreach (var key in Application.Current.Resources.Keys) { try { _ = Application.Current.Resources[key]; } catch (Exception e) { throw new InvalidOperationException(key.ToString(),e); } }
         OpenCenter();
         await Dispatcher.Yield(DispatcherPriority.ApplicationIdle);
@@ -124,11 +162,31 @@ internal sealed class Shell : IDisposable
         OpenSettings();
         await Dispatcher.Yield(DispatcherPriority.ApplicationIdle);
         if (_settings?.IsLoaded != true) throw new InvalidOperationException("Configurações indisponíveis");
-        if (capturePath != null) Capture(_settings, capturePath);
+        if (capturePath != null)
+        {
+            Capture(_settings, capturePath);
+            var bar = _bars[0];
+            bar.UpdateApps([]); // Keep titles, private paths and application icons out of documentation.
+            Capture(bar, Path.Combine(Path.GetDirectoryName(Path.GetFullPath(capturePath))!, "barra.png"));
+        }
         _settings.Width = 390;
         await Dispatcher.Yield(DispatcherPriority.ApplicationIdle);
         _settings.VerifyPages();
         _settings.Close();
+        var defaults = Services.Settings;
+        foreach (var (theme, edge, size) in new[] { ("Midnight", "Left", "Grande"), ("Liquid Glass", "Right", "Normal"), ("iOS Glass", "Top", "Compacto"), ("Claro", "Bottom", "Normal") })
+        {
+            var trial = Services.Settings;
+            trial.Theme = theme; trial.Edge = edge; trial.Size = size;
+            trial.WidgetScales["clock"] = 1.25;
+            trial.Widgets.Reverse();
+            trial.WidgetGroups["cpu"] = trial.WidgetGroups["ram"] = "Sistema";
+            Services.Save(trial); Reconfigure();
+            await Dispatcher.Yield(DispatcherPriority.ApplicationIdle);
+            if (_bars.Any(b => !b.HasClock || !b.IsLoaded || !b.VisibleGroupNames.SequenceEqual(["Sistema"]))) throw new InvalidOperationException("Falha no layout " + theme);
+        }
+        Services.Save(defaults); Reconfigure();
+        if (_bars.Any(b => b.VisibleGroupNames.Length != 0)) throw new InvalidOperationException("Grupo persistiu após restauração");
         var manifest = Path.Combine(Services.DataDirectory, "smoke-extension.json");
         File.WriteAllText(manifest, """{"apiVersion":1,"id":"smoke","name":"Teste","source":"text","permissions":[],"text":"Verificado"}""");
         Services.PreviewPlugin(manifest);
