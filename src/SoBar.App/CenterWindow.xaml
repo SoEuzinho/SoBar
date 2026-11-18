@@ -1,0 +1,33 @@
+<Window x:Class="SoBar.App.CenterWindow" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+  WindowStartupLocation="CenterScreen" Style="{StaticResource PanelWindow}" Title="Central • SoBar" Width="650" Height="520" MinWidth="340">
+  <Grid Margin="24,17,24,15">
+    <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+    <DockPanel>
+      <StackPanel Orientation="Horizontal">
+        <TextBlock Text="◒" Foreground="{DynamicResource Accent}" FontSize="30" VerticalAlignment="Center"/>
+        <TextBlock Text="Central" FontSize="27" FontWeight="SemiBold" Margin="9,0,0,0" VerticalAlignment="Center"/>
+      </StackPanel>
+      <Button Content="Configurações" Click="SettingsClick" HorizontalAlignment="Right" VerticalAlignment="Center"/>
+    </DockPanel>
+    <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,14,0,12">
+      <Button x:Name="SearchTab" Content="Pesquisar" Click="SearchClick"/>
+      <Button x:Name="AssistantTab" Content="Assistente" Click="AssistantClick"/>
+    </StackPanel>
+    <Grid Grid.Row="2" Margin="0,1,0,10"><Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+      <TextBox x:Name="Query" AutomationProperties.Name="Consulta" Text="{Binding Query, UpdateSourceTrigger=PropertyChanged}" KeyDown="QueryKeyDown" Height="40" FontSize="16"/>
+      <Button Grid.Column="1" x:Name="Send" Content="Enviar" Click="SendClick" Margin="6,0,0,0"/>
+    </Grid>
+    <ListBox x:Name="Results" Grid.Row="3" ItemsSource="{Binding Results}" Background="Transparent" BorderThickness="0" Foreground="{DynamicResource Ink}" ScrollViewer.HorizontalScrollBarVisibility="Disabled" MouseDoubleClick="ResultDoubleClick" KeyDown="ResultKeyDown" AutomationProperties.Name="Resultados da pesquisa">
+      <ListBox.ItemContainerStyle><Style TargetType="{x:Type ListBoxItem}"><Setter Property="Control.Padding" Value="8,6"/><Setter Property="Control.HorizontalContentAlignment" Value="Stretch"/><Setter Property="Control.Foreground" Value="{DynamicResource Ink}"/></Style></ListBox.ItemContainerStyle>
+      <ListBox.ItemTemplate><DataTemplate><Grid><Grid.ColumnDefinitions><ColumnDefinition Width="36"/><ColumnDefinition/></Grid.ColumnDefinitions>
+        <TextBlock Text="{Binding Glyph}" Foreground="{DynamicResource Accent}" FontFamily="Segoe MDL2 Assets" FontSize="17" VerticalAlignment="Center"/>
+        <StackPanel Grid.Column="1"><TextBlock Text="{Binding Name}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/><TextBlock Text="{Binding Detail}" ToolTip="{Binding Detail}" Foreground="{DynamicResource Muted}" FontSize="12" TextTrimming="CharacterEllipsis"/></StackPanel>
+      </Grid></DataTemplate></ListBox.ItemTemplate>
+    </ListBox>
+    <DockPanel x:Name="ReplyPanel" Grid.Row="3">
+      <Button x:Name="Suggested" Content="{Binding Suggested.Name}" HorizontalAlignment="Left" DockPanel.Dock="Bottom" Margin="0,8,0,0" Click="SuggestionClick"/>
+      <TextBox x:Name="Response" Text="{Binding Answer, Mode=OneWay}" IsReadOnly="True" VerticalContentAlignment="Top" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto" AutomationProperties.Name="Resposta do assistente"/>
+    </DockPanel>
+    <TextBlock Grid.Row="4" Style="{StaticResource Hint}" Text="{Binding Status}" Margin="0,10,0,0"/>
+  </Grid>
+</Window>

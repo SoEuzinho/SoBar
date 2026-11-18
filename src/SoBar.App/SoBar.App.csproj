@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <AssemblyName>SoBar</AssemblyName>
+    <RootNamespace>SoBar.App</RootNamespace>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <Version>0.1.0</Version>
+    <Product>SoBar</Product>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../SoBar.Core/SoBar.Core.csproj" />
+    <ProjectReference Include="../SoBar.Windows/SoBar.Windows.csproj" />
+    <ProjectReference Include="../SoBar.Widgets/SoBar.Widgets.csproj" />
+    <ProjectReference Include="../SoBar.Infrastructure/SoBar.Infrastructure.csproj" />
+  </ItemGroup>
+</Project>
