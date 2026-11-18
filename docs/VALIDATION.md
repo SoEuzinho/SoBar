@@ -1,4 +1,20 @@
-# Validação da prévia 0.1.0
+# Validação das distribuições
+
+## Prévia 0.2.0
+
+Em 18 de novembro de 2026, o código d3b5393 compilou em Release no Windows 11 x64 build 26300 com zero avisos e zero erros. A execução incluiu os testes nativos interativos: **66 testes aprovados**, distribuídos em 22 de Windows, 25 de widgets e 19 de infraestrutura.
+
+| Verificação | Resultado observado |
+|---|---|
+| Dock e monitores | Comprimento conforme o conteúdo, centralização nas quatro bordas e limites em DPI simulado. Em dois monitores físicos, as janelas ocuparam as telas solicitadas. A reserva da área de trabalho, a transferência de atalhos e a faixa de reabertura de 3 px passaram nos testes. |
+| Transparência | Na captura do compositor, o fundo de teste mudou de preto para branco. Um pixel interno superior mudou de RGB #18191B para #7E7F81 e um inferior de #0A0B0D para #707173. As listras do fundo continuam visíveis através da superfície WPF. [Captura real do dock](assets/dock-contexto.png) |
+| Widgets | Os testes verificaram criação, edição, persistência e remoção de compromissos; energia sem bateria; hora; medidores; autorização, pausa e expurgo de tempo de tela. A captura usa métricas reais e um compromisso de exemplo gravado apenas no perfil temporário. |
+| Codex | O executável instalado aceitou a inicialização JSON-RPC em um diretório de teste. O esquema local e os testes de mensagens cobriram seleção do limite do Codex, percentuais, janela ausente, intervalo variável e renovação. O uso real da conta depende da conexão autorizada no painel. |
+| Distribuição | Verificamos a assinatura RSA-PSS do MSI, fizemos a extração administrativa pelo Windows Installer e executamos o smoke WPF desse conteúdo. Repetimos o smoke com o ZIP extraído. Ambos os binários identificaram o commit de implementação d3b5393. |
+
+A validação visual ocorreu no Windows 11. Desfoque no Windows 10, monitores físicos de escalas distintas e cota autenticada de produção seguem pendentes. A relação entre os 109 cartões externos e os 23 widgets desta versão está no [catálogo de cobertura](CATALOGO.md).
+
+## Prévia 0.1.0
 
 Em 18 de novembro de 2026, a solução compilou em Release com **zero avisos e zero erros** no Windows x64 build 26300. O SDK usado foi o 10.0.404. O MSI e o ZIP incluem o Windows Desktop Runtime 10.0.15.
 
