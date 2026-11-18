@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup><TargetFramework>net10.0-windows</TargetFramework></PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../SoBar.Core/SoBar.Core.csproj" />
+    <ProjectReference Include="../SoBar.Plugins/SoBar.Plugins.csproj" />
+    <PackageReference Include="Microsoft.Data.Sqlite.Core" Version="10.0.11" />
+    <PackageReference Include="SQLitePCLRaw.provider.winsqlite3" Version="2.1.11" />
+    <PackageReference Include="Serilog.Sinks.File" Version="7.0.0" />
+    <PackageReference Include="System.Security.Cryptography.ProtectedData" Version="10.0.11" />
+    <EmbeddedResource Include="publisher.xml" LogicalName="SoBar.Publisher" />
+    <InternalsVisibleTo Include="SoBar.Infrastructure.Tests"/>
+  </ItemGroup>
+</Project>
