@@ -8,6 +8,10 @@
     <SolidColorBrush x:Key="Muted" Color="#ACBEB5"/>
     <SolidColorBrush x:Key="Accent" Color="#57D9AF"/>
     <SolidColorBrush x:Key="BarFill" Color="#18221E"/>
+    <SolidColorBrush x:Key="DockTile" Color="#89212328"/>
+    <SolidColorBrush x:Key="DockEdge" Color="#476F757D"/>
+    <SolidColorBrush x:Key="DockHover" Color="#AC424C59"/>
+    <SolidColorBrush x:Key="DockRim" Color="#767F8995"/>
     <Style TargetType="Window">
       <Setter Property="Background" Value="{DynamicResource Base}"/>
       <Setter Property="Foreground" Value="{DynamicResource Ink}"/>
@@ -32,6 +36,26 @@
           <Trigger Property="IsKeyboardFocused" Value="True"><Setter TargetName="Box" Property="BorderBrush" Value="{DynamicResource Accent}"/></Trigger>
           <Trigger Property="IsPressed" Value="True"><Setter TargetName="Box" Property="Opacity" Value="0.7"/></Trigger>
           <Trigger Property="IsEnabled" Value="False"><Setter TargetName="Box" Property="Opacity" Value="0.45"/></Trigger>
+        </ControlTemplate.Triggers>
+      </ControlTemplate></Setter.Value></Setter>
+    </Style>
+    <Style x:Key="DockButton" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
+      <Setter Property="Background" Value="{DynamicResource DockTile}"/>
+      <Setter Property="BorderBrush" Value="{DynamicResource DockEdge}"/>
+      <Setter Property="BorderThickness" Value="1"/>
+      <Setter Property="Padding" Value="0"/>
+      <Setter Property="Width" Value="48"/>
+      <Setter Property="Height" Value="46"/>
+      <Setter Property="Margin" Value="2,1"/>
+      <Setter Property="HorizontalContentAlignment" Value="Center"/>
+      <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="Button">
+        <Border x:Name="Body" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="10" SnapsToDevicePixels="True">
+          <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}" VerticalAlignment="Center"/>
+        </Border>
+        <ControlTemplate.Triggers>
+          <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Body" Property="Background" Value="{DynamicResource DockHover}"/></Trigger>
+          <Trigger Property="IsKeyboardFocused" Value="True"><Setter TargetName="Body" Property="BorderBrush" Value="{DynamicResource Accent}"/></Trigger>
+          <Trigger Property="IsPressed" Value="True"><Setter TargetName="Body" Property="Opacity" Value="0.72"/></Trigger>
         </ControlTemplate.Triggers>
       </ControlTemplate></Setter.Value></Setter>
     </Style>

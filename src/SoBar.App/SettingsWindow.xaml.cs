@@ -107,11 +107,14 @@ public partial class SettingsWindow : Window
     }
     private void Appearance()
     {
+        Add(Row(), "Aplicar dock de vidro", () => {
+            if (Change(s => s.ApplyGlassDock())) ShowPage(_section);
+        });
         SectionHeading("Tema");
         var themes = Row();
         foreach (var (id, label, baseColor, endColor) in new[] {
             ("Escuro","Black","#14201A","#283A2F"), ("Claro","White","#F4F7F3","#C1D2CA"),
-            ("Midnight","Midnight","#141B31","#3D4C81"), ("Liquid Glass","Liquid Glass","#193735","#638A7C"),
+            ("Midnight","Midnight","#141B31","#3D4C81"), ("Liquid Glass","Liquid Glass","#10151B","#647587"),
             ("iOS Glass","iOS Glass","#CBDCF2","#9ABCB9") })
         {
             var chip = Presentation.Button(label, () => { if (Change(s => s.Theme = id)) ShowPage(_section); });
@@ -238,10 +241,42 @@ public partial class SettingsWindow : Window
             Add(row,"Desagrupar",() => Rename(""));
         }
         SectionHeading("Adicionar à barra");
-        var available = Row();
-        foreach (var item in WidgetService.Catalog.Where(x => !S.Widgets.Contains(x.Key)))
-            Add(available, "+ " + item.Value, () => { if (Change(s => s.Widgets.Add(item.Key))) ShowPage(_section); });
+        var search = Input(Row(), "", "Filtrar widgets por nome ou categoria", 210);
+        var results = new StackPanel();
+        Page.Children.Add(results);
+        var enabled = S.Widgets.ToHashSet(StringComparer.Ordinal);
+        void Filter()
+        {
+            results.Children.Clear();
+            var query = search.Text.Trim();
+            foreach (var group in WidgetService.Catalog.Where(item => !enabled.Contains(item.Key))
+                         .GroupBy(item => Category(item.Key)).OrderBy(group => group.Key))
+            {
+                var choices = group.Where(item => item.Value.Contains(query, StringComparison.CurrentCultureIgnoreCase) ||
+                    group.Key.Contains(query, StringComparison.CurrentCultureIgnoreCase)).ToArray();
+                if (choices.Length == 0) continue;
+                var heading = new TextBlock { Text = group.Key, Margin = new Thickness(0,8,0,4), FontWeight = FontWeights.SemiBold };
+                results.Children.Add(heading);
+                var row = new WrapPanel();
+                results.Children.Add(row);
+                foreach (var item in choices)
+                    Add(row, "+ " + item.Value, () => { if (Change(s => s.Widgets.Add(item.Key))) ShowPage(_section); });
+            }
+            if (results.Children.Count == 0)
+                results.Children.Add(new TextBlock {Text = "Nenhum widget disponível para esse filtro."});
+        }
+        search.TextChanged += (_, _) => Filter();
+        Filter();
     }
+    private static string Category(string id) => id switch
+    {
+        "clock" or "clock-card" => "Relógios",
+        "calendar" or "agenda" or "pomodoro" or "stopwatch" or "notes" or "screen-time" => "Produtividade",
+        "ai-usage" or "codex-limits" => "Inteligência artificial",
+        "music" or "volume" or "microphone" => "Mídia e áudio",
+        "weather" => "Clima",
+        _ => "Sistema"
+    };
     private void Move(string id, int target)
     {
         if (!S.Widgets.Contains(id) || target < 0 || target >= S.Widgets.Count || S.Widgets.IndexOf(id) == target) return;

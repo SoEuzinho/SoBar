@@ -103,9 +103,10 @@ public sealed class DesktopWindowService
 
     private static ImageSource? WindowIcon(nint hwnd)
     {
-        Native.SendMessageTimeout(hwnd, 0x7f, 2, 0, 0x0002, 30, out var icon); // WM_GETICON / ICON_SMALL2
-        if (icon == 0) icon = Native.GetClassIcon(hwnd, -34);
+        var responded = Native.SendMessageTimeout(hwnd, 0x7f, 1, 0, 0x0002, 30, out var icon); // WM_GETICON / ICON_BIG
         if (icon == 0) icon = Native.GetClassIcon(hwnd, -14);
+        if (icon == 0 && responded != 0) Native.SendMessageTimeout(hwnd, 0x7f, 2, 0, 0x0002, 30, out icon);
+        if (icon == 0) icon = Native.GetClassIcon(hwnd, -34);
         return CopyIcon(icon);
     }
 
@@ -113,7 +114,7 @@ public sealed class DesktopWindowService
     {
         if (string.IsNullOrWhiteSpace(path)) return null;
         var info = new Native.ShellFileInfo();
-        if (Native.SHGetFileInfo(path, 0, ref info, (uint)Marshal.SizeOf<Native.ShellFileInfo>(), 0x100 | 1) == 0 || info.Icon == 0) return null;
+        if (Native.SHGetFileInfo(path, 0, ref info, (uint)Marshal.SizeOf<Native.ShellFileInfo>(), 0x100) == 0 || info.Icon == 0) return null;
         try { return CopyIcon(info.Icon); }
         finally { Native.DestroyIcon(info.Icon); }
     }

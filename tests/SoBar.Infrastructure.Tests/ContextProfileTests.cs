@@ -45,7 +45,7 @@ public sealed class ContextProfileTests
             Assert.Equal("Claro", plan.Resolve("Display1", "Display2", Editor).Theme);
             Assert.Equal("Midnight", plan.Resolve("Display2", "Display2", Editor).Theme);
             Assert.Same(plan.Default, plan.Resolve("Display2", "Display1", Editor));
-            Assert.Equal("Escuro", service.Settings.Theme);
+            Assert.Equal("Liquid Glass", service.Settings.Theme);
             Assert.False(service.Settings.StartWithWindows);
         }
         finally { directory.Delete(true); }

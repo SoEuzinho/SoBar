@@ -165,20 +165,20 @@ internal sealed partial class Shell : IDisposable
         if (capturePath != null)
         {
             Capture(_settings, capturePath);
-            var bar = _bars[0];
-            bar.UpdateApps([]); // Keep titles, private paths and application icons out of documentation.
-            Capture(bar, Path.Combine(Path.GetDirectoryName(Path.GetFullPath(capturePath))!, "barra.png"));
+
         }
         _settings.Width = 390;
         await Dispatcher.Yield(DispatcherPriority.ApplicationIdle);
         _settings.VerifyPages();
         _settings.Close();
+        if (capturePath != null) await CaptureDockAsync(Path.GetDirectoryName(Path.GetFullPath(capturePath))!);
         var defaults = Services.Settings;
         foreach (var (theme, edge, size) in new[] { ("Midnight", "Left", "Grande"), ("Liquid Glass", "Right", "Normal"), ("iOS Glass", "Top", "Compacto"), ("Claro", "Bottom", "Normal") })
         {
             var trial = Services.Settings;
             trial.Theme = theme; trial.Edge = edge; trial.Size = size;
-            trial.WidgetScales["clock"] = 1.25;
+            trial.Widgets = ["clock-card","cpu","ram"];
+            trial.WidgetScales["clock-card"] = 1.25;
             trial.Widgets.Reverse();
             trial.WidgetGroups["cpu"] = trial.WidgetGroups["ram"] = "Sistema";
             Services.Save(trial); Reconfigure();

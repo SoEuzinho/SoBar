@@ -9,7 +9,6 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <ApplicationIcon>SoBar.ico</ApplicationIcon>
-    <Version>0.1.0</Version>
     <Product>SoBar</Product>
   </PropertyGroup>
   <ItemGroup>

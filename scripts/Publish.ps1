@@ -1,5 +1,5 @@
 #requires -Version 7.0
-param([ValidatePattern('^\d+\.\d+\.\d+$')][string]$Version = '0.1.0', [switch]$Sign)
+param([ValidatePattern('^\d+\.\d+\.\d+$')][string]$Version = '0.2.0', [switch]$Sign)
 $ErrorActionPreference = 'Stop'
 $root = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 $stage = Join-Path $root ('artifacts/build-' + [guid]::NewGuid().ToString('N'))

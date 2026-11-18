@@ -41,6 +41,92 @@ public sealed class ShellIntegrationTests
     private static extern bool PostMessage(nint hwnd, int message, nint wParam, nint lParam);
 
     [MultiDisplayFact]
+    public void AutoHiddenFloatingDockLeavesAThinStripAboveTheNativeTaskbar()
+    {
+        DesktopTests.RunSta(() =>
+        {
+            Assert.True(Native.GetCursorPos(out var pointer));
+            var monitor = DisplayInfo.ReadAll().First(m => !m.Bounds.Contains(pointer.X, pointer.Y));
+            var window = NewOverlay();
+            using var host = new DesktopBarHost(window, () => { }, () => { });
+            try
+            {
+                host.SetPreferredLength(380);
+                host.Configure(monitor.Id, "Bottom", true, true, false, 48);
+                window.Show();
+                var hwnd = new WindowInteropHelper(window).Handle;
+                int inset = (int)Math.Round(8 * monitor.Dpi / 96d);
+                var strip = BarPlacement.At(monitor.Work, BarEdge.Bottom, BarPlacement.PhysicalThickness(48, monitor.Dpi) + 2 * inset);
+                var expanded = BarPlacement.FitDock(strip, BarEdge.Bottom, 380, monitor.Dpi, inset);
+                var collapsed = BarPlacement.EdgeStrip(monitor.Work, expanded, BarEdge.Bottom, (int)Math.Round(3 * monitor.Dpi / 96d));
+                PumpUntil(() => Native.GetWindowRect(hwnd, out var actual) && actual == collapsed);
+                Assert.False(host.IsReserved);
+                Assert.Equal(monitor.Work, DisplayInfo.ReadAll().Single(m => m.Id == monitor.Id).Work);
+                host.Configure(monitor.Id, "Bottom", false, false, false, 48);
+                PumpUntil(() => Native.GetWindowRect(hwnd, out var actual) && actual == expanded);
+            }
+            finally { host.Dispose(); window.Close(); }
+        });
+    }
+
+    [MultiDisplayFact]
+    public void FitsFloatingDocksOnTwoDisplaysAndKeepsShellReservationFullWidth()
+    {
+        DesktopTests.RunSta(() =>
+        {
+            var screens = DisplayInfo.ReadAll();
+            var a = screens.Single(m => m.Primary);
+            var b = screens.First(m => !m.Primary);
+            var first = NewOverlay();
+            var second = NewOverlay();
+            using var firstHost = new DesktopBarHost(first, () => { }, () => { });
+            using var secondHost = new DesktopBarHost(second, () => { }, () => { });
+            firstHost.SetPreferredLength(410);
+            secondHost.SetPreferredLength(275);
+            int Inset(DisplayInfo screen) => (int)Math.Round(8 * screen.Dpi / 96d);
+            try
+            {
+                firstHost.Configure(a.Id, "Top", false, false, false, 40);
+                secondHost.Configure(b.Id, "Right", false, false, false, 52);
+                first.Show(); second.Show();
+                var firstHandle = new WindowInteropHelper(first).Handle;
+                var secondHandle = new WindowInteropHelper(second).Handle;
+                var height = BarPlacement.PhysicalThickness(40, a.Dpi);
+                var width = BarPlacement.PhysicalThickness(52, b.Dpi);
+                var reservedHeight = height + Inset(a) * 2;
+                var expectedA = BarPlacement.FitDock(BarPlacement.At(a.Work, BarEdge.Top, reservedHeight), BarEdge.Top, 410, a.Dpi, Inset(a));
+                var expectedB = BarPlacement.FitDock(BarPlacement.At(b.Work, BarEdge.Right, width + Inset(b) * 2), BarEdge.Right, 275, b.Dpi, Inset(b));
+                first.Dispatcher.Invoke(() => { }, DispatcherPriority.ApplicationIdle);
+                Assert.True(Native.GetWindowRect(firstHandle, out var actualA));
+                Assert.True(Native.GetWindowRect(secondHandle, out var actualB));
+                Assert.Equal(expectedA, actualA);
+                Assert.Equal(expectedB, actualB);
+                Assert.Equal(a.Handle, Native.MonitorFromWindow(firstHandle, 0));
+                Assert.Equal(b.Handle, Native.MonitorFromWindow(secondHandle, 0));
+                Assert.Equal(a.Work, DisplayInfo.ReadAll().Single(m => m.Id == a.Id).Work);
+                Assert.Equal(b.Work, DisplayInfo.ReadAll().Single(m => m.Id == b.Id).Work);
+                firstHost.Configure(a.Id, "Top", true, false, false, 40);
+                var reserved = a.Work with { Top = a.Work.Top + reservedHeight };
+                PumpUntil(() => DisplayInfo.ReadAll().Single(m => m.Id == a.Id).Work == reserved);
+                Assert.True(firstHost.IsReserved);
+                Assert.True(Native.GetWindowRect(firstHandle, out actualA));
+                Assert.Equal(expectedA, actualA);
+                firstHost.SetPreferredLength(610);
+                PumpUntil(() => Native.GetWindowRect(firstHandle, out var actual) && actual.Width == (int)Math.Ceiling(610 * a.Dpi / 96d));
+                Assert.Equal(reserved, DisplayInfo.ReadAll().Single(m => m.Id == a.Id).Work);
+            }
+            finally
+            {
+                firstHost.Dispose(); secondHost.Dispose();
+                if (first.IsLoaded) first.Close();
+                if (second.IsLoaded) second.Close();
+            }
+            PumpUntil(() => DisplayInfo.ReadAll().Single(m => m.Id == a.Id).Work == a.Work);
+            Assert.Equal(b.Work, DisplayInfo.ReadAll().Single(m => m.Id == b.Id).Work);
+        });
+    }
+
+    [MultiDisplayFact]
     public void AssignsTwoRealDisplaysAndTransfersHotkeysWhenFirstBarCloses()
     {
         DesktopTests.RunSta(() =>

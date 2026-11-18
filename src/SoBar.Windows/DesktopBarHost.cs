@@ -28,9 +28,11 @@ public sealed class DesktopBarHost : IDisposable
     private string monitorId = "";
     private BarEdge edge = BarEdge.Top;
     private int thickness = 48;
+    private double preferredLength;
     private bool reserve, autoHide, hideFullscreen = true;
     private DisplayInfo? display;
     private PixelRect placement;
+    private PixelRect revealStrip, physicalEdgeStrip, expandedHoverArea;
     private PixelRect? applied;
     private (BarEdge Edge, PixelRect Rect)? reservation;
     private long lastHover;
@@ -64,6 +66,15 @@ public sealed class DesktopBarHost : IDisposable
         this.hideFullscreen = hideFullscreen;
         this.thickness = thickness;
         if (hwnd != 0 && !disposed) Layout();
+    }
+
+    /// <summary>Sets the content length along the chosen edge in DIPs. Zero selects the full edge.</summary>
+    public void SetPreferredLength(double lengthDip)
+    {
+        if (!double.IsFinite(lengthDip) || lengthDip < 0) throw new ArgumentOutOfRangeException(nameof(lengthDip));
+        if (disposed || lengthDip == preferredLength) return;
+        preferredLength = lengthDip;
+        if (hwnd != 0) QueueLayout();
     }
 
     public bool SetCommandHotkey(ModifierKeys modifiers, Key key)
@@ -155,21 +166,27 @@ public sealed class DesktopBarHost : IDisposable
                 var data = Data();
                 registered = Native.SHAppBarMessage(0, ref data) != 0; // ABM_NEW
             }
-            var size = BarPlacement.PhysicalThickness(thickness, display.Dpi);
-            placement = BarPlacement.At(display.Work, edge, size);
+            int inset = preferredLength == 0 ? 0 : (int)Math.Round(8 * display.Dpi / 96d);
+            var stripSize = BarPlacement.PhysicalThickness(thickness, display.Dpi) + 2 * inset;
+            var strip = BarPlacement.At(display.Work, edge, stripSize);
             if (registered)
             {
                 var data = Data();
-                data.Rect = BarPlacement.At(display.Bounds, edge, size);
+                data.Rect = BarPlacement.At(display.Bounds, edge, stripSize);
                 Native.SHAppBarMessage(2, ref data); // ABM_QUERYPOS
-                data.Rect = ResizeAfterQuery(data.Rect, size);
+                data.Rect = ResizeAfterQuery(data.Rect, stripSize);
                 if (reservation != (edge, data.Rect))
                 {
                     Native.SHAppBarMessage(3, ref data); // ABM_SETPOS
                     reservation = (edge, data.Rect);
                 }
-                placement = data.Rect;
+                strip = data.Rect;
             }
+            placement = BarPlacement.FitDock(strip, edge, preferredLength, display.Dpi, inset);
+            int revealPixels = Math.Max(2, (int)Math.Round(3 * display.Dpi / 96d));
+            revealStrip = BarPlacement.EdgeStrip(strip, placement, edge, revealPixels);
+            physicalEdgeStrip = BarPlacement.EdgeStrip(display.Bounds, placement, edge, revealPixels);
+            expandedHoverArea = BarPlacement.HoverArea(placement, revealStrip);
             if (!Native.GetWindowRect(hwnd, out var actual) || actual != applied) applied = null;
             Tick(this, EventArgs.Empty);
             if (hideFullscreen || autoHide) timer.Start(); else timer.Stop();
@@ -210,10 +227,11 @@ public sealed class DesktopBarHost : IDisposable
         var target = placement;
         if (autoHide && Native.GetCursorPos(out var pointer))
         {
-            var hitArea = applied ?? BarPlacement.At(placement, edge, 3);
-            if (hitArea.Contains(pointer.X, pointer.Y) || window.IsKeyboardFocusWithin || window.IsMouseCaptureWithin)
+            var hitArea = applied == placement ? expandedHoverArea : revealStrip;
+            if (hitArea.Contains(pointer.X, pointer.Y) || physicalEdgeStrip.Contains(pointer.X, pointer.Y) ||
+                window.IsKeyboardFocusWithin || window.IsMouseCaptureWithin)
                 lastHover = Environment.TickCount64;
-            if (Environment.TickCount64 - lastHover > 700) target = BarPlacement.At(placement, edge, 3);
+            if (Environment.TickCount64 - lastHover > 700) target = revealStrip;
         }
         if (hiddenForFullscreen || target != applied)
         {

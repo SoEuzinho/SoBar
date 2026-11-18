@@ -20,6 +20,7 @@ public sealed class InfrastructureTests : IDisposable
             Assert.False(s.ReserveSpace);
             Assert.False(s.StartWithWindows);
             s.Theme = "Midnight"; s.Size = "Grande"; s.WidgetScales["clock"] = 1.5;
+            s.Widgets = ["clock", "cpu", "ram"];
             app.Save(s);
             s.WidgetGroups["cpu"] = s.WidgetGroups["ram"] = "Sistema";
             app.Save(s); app.SaveProfile("Trabalho");

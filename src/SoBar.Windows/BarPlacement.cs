@@ -40,5 +40,33 @@ internal static class BarPlacement
 
     public static int PhysicalThickness(int logicalThickness, uint dpi) =>
         Math.Max(1, (int)Math.Round(Math.Clamp(logicalThickness, 24, 240) * dpi / 96d));
+
+    // The Shell owns the full strip. Only the content-sized HWND is visible inside it.
+    public static PixelRect FitDock(PixelRect strip, BarEdge edge, double lengthDip, uint dpi, int inset)
+    {
+        if (lengthDip <= 0) return strip;
+        var horizontal = edge is BarEdge.Top or BarEdge.Bottom;
+        var span = horizontal ? strip.Width : strip.Height;
+        var depth = horizontal ? strip.Height : strip.Width;
+        int sideMargin = Math.Min(inset, Math.Max(0, (span - 1) / 2));
+        int normalMargin = Math.Min(inset, Math.Max(0, (depth - 1) / 2));
+        var length = (int)Math.Clamp(Math.Ceiling(lengthDip * dpi / 96d), 1, Math.Max(1, span - 2 * sideMargin));
+        var offset = (span - length) / 2;
+        return horizontal
+            ? new(strip.Left + offset, strip.Top + normalMargin, strip.Left + offset + length, strip.Bottom - normalMargin)
+            : new(strip.Left + normalMargin, strip.Top + offset, strip.Right - normalMargin, strip.Top + offset + length);
+    }
+
+    public static PixelRect EdgeStrip(PixelRect bounds, PixelRect dock, BarEdge edge, int thickness)
+    {
+        var edgeStrip = At(bounds, edge, thickness);
+        return edge is BarEdge.Top or BarEdge.Bottom
+            ? edgeStrip with { Left = dock.Left, Right = dock.Right }
+            : edgeStrip with { Top = dock.Top, Bottom = dock.Bottom };
+    }
+
+    public static PixelRect HoverArea(PixelRect dock, PixelRect strip) =>
+        new(Math.Min(dock.Left, strip.Left), Math.Min(dock.Top, strip.Top),
+            Math.Max(dock.Right, strip.Right), Math.Max(dock.Bottom, strip.Bottom));
 }
 

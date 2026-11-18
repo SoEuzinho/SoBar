@@ -126,7 +126,8 @@ public sealed class WidgetTests
             try
             {
                 using var service = new WidgetService(Path.GetTempPath());
-                Assert.Equal(17, WidgetService.Catalog.Count);
+                Assert.Contains("system-card", WidgetService.Catalog.Keys);
+                Assert.Contains("agenda", WidgetService.Catalog.Keys);
                 foreach (var id in WidgetService.Catalog.Keys) Assert.IsType<Button>(service.CreateTile(id));
                 var first = (Button)service.CreateTile("clock");
                 var second = (Button)service.CreateTile("clock");
@@ -134,6 +135,15 @@ public sealed class WidgetTests
                 second.RaiseEvent(new(FrameworkElement.LoadedEvent));
                 Assert.Matches(@"^\d{2}:\d{2}$", ((TextBlock)first.Content).Text);
                 Assert.Equal(((TextBlock)first.Content).Text, ((TextBlock)second.Content).Text);
+                var clockCard = (Button)service.CreateTile("clock-card");
+                clockCard.RaiseEvent(new(FrameworkElement.LoadedEvent));
+                Assert.Equal(WidgetService.ReadClock(first), WidgetService.ReadClock(clockCard));
+                Assert.DoesNotContain("°", (string)clockCard.ToolTip);
+                clockCard.RaiseEvent(new(FrameworkElement.UnloadedEvent));
+                var agenda = (Button)service.CreateTile("agenda");
+                agenda.RaiseEvent(new(FrameworkElement.LoadedEvent));
+                Assert.False(string.IsNullOrEmpty(System.Windows.Automation.AutomationProperties.GetItemStatus(agenda)));
+                agenda.RaiseEvent(new(FrameworkElement.UnloadedEvent));
                 first.RaiseEvent(new(FrameworkElement.UnloadedEvent));
                 second.RaiseEvent(new(FrameworkElement.UnloadedEvent));
                 Assert.Throws<ArgumentOutOfRangeException>(() => service.CreateTile("missing"));

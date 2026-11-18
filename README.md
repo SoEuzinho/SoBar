@@ -1,8 +1,10 @@
 # SoBar
 
-Barra de tarefas e widgets para Windows, escrita em C# com .NET 10 e WPF. Na primeira execução, o SoBar abre junto à barra do Windows. Clique em **SoBar** para pesquisar e na **engrenagem** para configurar.
+Dock flutuante para Windows, escrito em C# com .NET 10 e WPF. Ícones de aplicativos e cartões interativos ficam em uma faixa de vidro centralizada. O primeiro botão abre a pesquisa e a seta abre o menu de opções. O dock convive com a barra original do Windows.
 
-![Barra do SoBar com relógio e indicadores de sistema](docs/assets/barra.png)
+![SoBar em execução com aplicativos, indicadores de sistema e a agenda aberta](docs/assets/dock-contexto.png)
+
+A captura usa um fundo de teste, ícones nativos do Windows e um compromisso de exemplo no perfil temporário. O cartão de CPU e memória é uma opção de layout. Na primeira execução normal, esse espaço traz o cartão de limites do Codex, que solicita conexão.
 
 ## Instalar e usar
 
@@ -10,6 +12,7 @@ Barra de tarefas e widgets para Windows, escrita em C# com .NET 10 e WPF. Na pri
 2. Clique em um aplicativo para alternar entre janelas. Abra o menu de contexto do botão para fixar o aplicativo ou acessar as ações disponíveis.
 3. Em **Configurações → Widgets**, adicione itens, arraste para reordenar e ajuste a escala. Em **Aparência**, escolha tema, tamanho, opacidade e cor. Em **Barra**, escolha monitor, posição, agrupamento e ocultação.
 4. Use **Ctrl+Alt+Espaço** para pesquisar aplicativos do menu Iniciar e arquivos em Documentos ou na Área de Trabalho. O atalho é configurável. A central também oferece comandos locais e um assistente opcional.
+5. Se você atualizou da versão 0.1.0, escolha **Aparência → Aplicar dock de vidro** para usar o conjunto da referência. Os aplicativos fixados continuam na barra.
 
 **Saída de emergência:** pressione **Ctrl+Alt+Shift+End** ou escolha **Encerrar o SoBar** no menu do botão SoBar. Para remover a edição instalada, use **Aplicativos instalados** do Windows. Os dados pessoais ficam em `%LOCALAPPDATA%\SoBar`.
 
@@ -20,7 +23,7 @@ Barra de tarefas e widgets para Windows, escrita em C# com .NET 10 e WPF. Na pri
 - Aplicativos fixados e abertos, ícones do Shell, indicação de foco, agrupamento e miniaturas DWM.
 - Barra em um ou vários monitores, ajuste por DPI, reserva opcional da área de trabalho, ocultação automática e detecção de tela cheia.
 - Cinco estilos, três tamanhos, editor de widgets com grupos nomeados, [perfis automáticos por aplicativo e monitor](docs/CONTEXT-PROFILES.md), importação e exportação de configurações.
-- Dezessete widgets, incluindo relógio, CPU, RAM, temperatura, controles de áudio, notas, Pomodoro e uso organizacional da API OpenAI. [Fontes de dados e permissões](docs/WIDGETS.md)
+- 23 widgets, incluindo agenda local, cartão duplo de CPU e RAM, energia, relógio com clima, tempo de tela opcional e janelas de uso do Codex. O catálogo das configurações filtra por nome ou categoria. [Fontes de dados e permissões](docs/WIDGETS.md) · [Cobertura dos 109 cartões da referência](docs/CATALOGO.md)
 - Pesquisa local e histórico opcional. O assistente só envia a pergunta ao acionar **Enviar**. Ações sugeridas passam por uma lista de operações permitidas e exigem confirmação. As chaves são protegidas pela DPAPI da conta Windows.
 - Extensões declarativas com manifesto versionado, prévia das permissões e verificação em processo auxiliar. [Como criar uma extensão](docs/PLUGINS.md)
 

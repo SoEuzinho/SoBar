@@ -31,7 +31,13 @@ public partial class App : Application
         try
         {
             if (_smoke) _temporaryDirectory = Path.Combine(Path.GetTempPath(), "SoBar-Smoke-" + Guid.NewGuid().ToString("N"));
-            _services = new AppServices(_temporaryDirectory, isolatePlugins: true);
+            _services = new AppServices(_temporaryDirectory, isolatePlugins: true,
+                initialPins: _smoke ? null : PinnedShortcuts.Discover);
+            if (_temporaryDirectory != null && e.Args.Contains("--capture-settings"))
+            {
+                var item = new { Id = Guid.NewGuid(), Start = DateTimeOffset.Now.AddHours(1), Title = "Revisão de design" };
+                File.WriteAllText(Path.Combine(_temporaryDirectory,"agenda.json"),System.Text.Json.JsonSerializer.Serialize(new[] { item }));
+            }
             _widgets = new WidgetService(_services.DataDirectory);
             _shell = new Shell(_services, _widgets, new DesktopWindowService(), () => Shutdown());
             DispatcherUnhandledException += OnUnexpectedError;

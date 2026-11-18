@@ -30,7 +30,7 @@ public sealed partial class AppServices : IDisposable
     public string DataDirectory { get; }
     public AppSettings Settings { get { lock (_sync) return Decode(_current); } }
 
-    public AppServices(string? dataDirectory = null, bool isolatePlugins = false)
+    public AppServices(string? dataDirectory = null, bool isolatePlugins = false, Func<List<string>>? initialPins = null)
     {
         _isolatePlugins = isolatePlugins;
         _useStartup = dataDirectory == null;
@@ -79,6 +79,11 @@ public sealed partial class AppServices : IDisposable
                 if (_useStartup) ApplyStartup(false);
                 _log.Warning("Preferências inválidas preservadas");
             }
+        }
+        else if (initialPins != null)
+        {
+            var settings = new AppSettings { PinnedApps = initialPins() };
+            Save(settings);
         }
         Log("Sessão iniciada");
     }

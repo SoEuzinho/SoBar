@@ -5,7 +5,7 @@ using System.Runtime.InteropServices;
 
 namespace SoBar.Widgets;
 
-internal sealed record Reading(string Short, string Detail)
+internal sealed record Reading(string Short, string Detail, double? Percent = null, CardLines? Card = null)
 {
     public static Reading Missing(string reason) => new("—", reason);
 }
@@ -24,7 +24,7 @@ internal sealed class SystemReadings
         var value = previousCpu is { } last ? CpuPercent(last.Idle, last.Total, idle, total) : null;
         previousCpu = (idle, total);
         return value is double percent
-            ? new($"{percent:F0}%", $"Uso total do processador · {Environment.ProcessorCount} processadores lógicos")
+            ? new($"{percent:F0}%", $"Uso total do processador · {Environment.ProcessorCount} processadores lógicos", percent)
             : Reading.Missing("Aguardando a próxima amostra do processador.");
     }
 
@@ -41,7 +41,7 @@ internal sealed class SystemReadings
     {
         var status = new MemoryStatus { Length = (uint)Marshal.SizeOf<MemoryStatus>() };
         if (!GlobalMemoryStatusEx(ref status)) return Reading.Missing("Memória física indisponível.");
-        return new($"{status.Load}%", $"{GiB(status.TotalPhysical - status.AvailablePhysical):F1} de {GiB(status.TotalPhysical):F1} GiB em uso");
+        return new($"{status.Load}%", $"{GiB(status.TotalPhysical - status.AvailablePhysical):F1} de {GiB(status.TotalPhysical):F1} GiB em uso", status.Load);
     }
 
     public static Reading Disk()
@@ -87,6 +87,22 @@ internal sealed class SystemReadings
             return Reading.Missing("Nenhuma bateria com leitura disponível.");
         var source = status.Ac == 1 ? "Na tomada" : status.Ac == 0 ? "Usando a bateria" : "Fonte de energia desconhecida";
         return new($"{status.Percent}%", $"{source} · {status.Percent}% de carga");
+    }
+
+    public static Reading Power() => GetSystemPowerStatus(out var status)
+        ? FormatPower(status.Ac, status.BatteryFlag, status.Percent)
+        : Reading.Missing("O Windows não disponibilizou o estado da energia.");
+
+    internal static Reading FormatPower(byte mains, byte flag, byte percent)
+    {
+        if (flag != 255 && (flag & 128) == 0 && percent <= 100)
+        {
+            var state = (flag & 8) != 0 ? "Carregando" : mains == 1 ? "Na tomada" : "Carga da bateria";
+            return new($"{percent}%", $"{state} · {percent}% de bateria", percent);
+        }
+        if (mains == 1) return new("Tomada", "O Windows informa alimentação pela tomada.");
+        if (mains == 0) return new("Bateria", "O Windows informa alimentação por bateria, sem percentual disponível.");
+        return Reading.Missing("Fonte de energia desconhecida.");
     }
 
     [StructLayout(LayoutKind.Sequential)]

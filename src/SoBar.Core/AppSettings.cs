@@ -4,9 +4,9 @@ namespace SoBar.Core;
 
 public sealed class AppSettings
 {
-    public string Theme { get; set; } = "Escuro";
-    public string Accent { get; set; } = "#57D9AF";
-    public double Opacity { get; set; } = .96;
+    public string Theme { get; set; } = "Liquid Glass";
+    public string Accent { get; set; } = "#60BBFF";
+    public double Opacity { get; set; } = .82;
     public string Edge { get; set; } = "Bottom";
     public string Size { get; set; } = "Normal";
     public Dictionary<string, double> WidgetScales { get; set; } = [];
@@ -20,8 +20,24 @@ public sealed class AppSettings
     public bool StartWithWindows { get; set; }
     public bool HistoryEnabled { get; set; }
     public string Shortcut { get; set; } = "Ctrl+Alt+Space";
-    public List<string> Widgets { get; set; } = ["clock", "cpu", "ram"];
+    public List<string> Widgets { get; set; } = ["codex-limits", "agenda", "power-card", "clock-card"];
     public List<string> PinnedApps { get; set; } = [];
+
+    public void ApplyGlassDock()
+    {
+        var preset = new AppSettings();
+        Theme = preset.Theme;
+        Accent = preset.Accent;
+        Opacity = preset.Opacity;
+        Edge = preset.Edge;
+        Size = preset.Size;
+        Widgets = preset.Widgets;
+        foreach (var id in Widgets)
+        {
+            WidgetScales.Remove(id);
+            WidgetGroups.Remove(id);
+        }
+    }
 
     public void Validate()
     {

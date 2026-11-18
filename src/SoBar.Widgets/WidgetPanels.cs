@@ -8,22 +8,38 @@ namespace SoBar.Widgets;
 
 public sealed partial class WidgetService
 {
-    private void OpenPanel(string id, Window? owner)
+    private void OpenPanel(string id, Button anchor)
     {
         if (disposed) return;
         if (panels.TryGetValue(id, out var existing)) { existing.Activate(); return; }
-        var body = new StackPanel { Margin = new Thickness(22) };
+        var owner = Window.GetWindow(anchor);
+        bool card = DockCard.Supports(id);
+        var body = new StackPanel { Margin = new Thickness(card ? 15 : 22) };
+        var scroll = new ScrollViewer { Content = body, VerticalScrollBarVisibility = ScrollBarVisibility.Auto };
         var panel = new Window
         {
-            Title = $"SoBar · {Catalog[id]}", Width = 374, SizeToContent = SizeToContent.Height,
+            Title = $"SoBar · {Catalog[id]}", Width = card ? 304 : 374, SizeToContent = SizeToContent.Height,
             MaxHeight = Math.Min(680, SystemParameters.WorkArea.Height), WindowStartupLocation = WindowStartupLocation.CenterScreen,
             ResizeMode = ResizeMode.CanResizeWithGrip, ShowInTaskbar = false, Topmost = true,
-            Content = new ScrollViewer { Content = body, VerticalScrollBarVisibility = ScrollBarVisibility.Auto }
+            Content = card ? null : scroll
         };
         if (owner is { IsLoaded: true }) panel.Owner = owner;
-        body.Children.Add(new TextBlock { Text = Catalog[id], FontSize = 22, FontWeight = FontWeights.SemiBold });
-        var valueText = new TextBlock { FontSize = 28, FontWeight = FontWeights.Medium, Margin = new Thickness(0, 10, 0, 0), TextWrapping = TextWrapping.Wrap };
-        var detail = new TextBlock { FontSize = 13, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 5, 0, 14) };
+        if (card)
+        {
+            CardCallout.Configure(panel, anchor, scroll, id is "system-card" or "power-card");
+            var header = new DockPanel();
+            var dismiss = new Button { Content = "×", FontSize = 17, Width = 26, Height = 25, Padding = new Thickness(0),
+                HorizontalContentAlignment = HorizontalAlignment.Center, Margin = new Thickness(0), ToolTip = "Fechar" };
+            System.Windows.Automation.AutomationProperties.SetName(dismiss, "Fechar");
+            dismiss.Click += (_,_) => panel.Close();
+            DockPanel.SetDock(dismiss, Dock.Right); header.Children.Add(dismiss);
+            header.Children.Add(new TextBlock { Text = Catalog[id], FontSize = 13, Foreground = new SolidColorBrush(Color.FromRgb(183,199,218)),
+                FontWeight = FontWeights.SemiBold, VerticalAlignment = VerticalAlignment.Center });
+            body.Children.Add(header);
+        }
+        else body.Children.Add(new TextBlock { Text = Catalog[id], FontSize = 22, FontWeight = FontWeights.SemiBold });
+        var valueText = new TextBlock { FontSize = card ? 19 : 28, FontWeight = FontWeights.Medium, Margin = new Thickness(0, card ? 6 : 10, 0, 0), TextWrapping = TextWrapping.Wrap };
+        var detail = new TextBlock { FontSize = card ? 12 : 13, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 5, 0, card ? 8 : 14) };
         if (id != "notes") { body.Children.Add(valueText); body.Children.Add(detail); }
         panels[id] = panel;
         updatePanels[id] = reading => { valueText.Text = reading.Short; detail.Text = reading.Detail; };
@@ -31,9 +47,16 @@ public sealed partial class WidgetService
         {
             case "calendar" or "clock":
                 body.Children.Add(new Calendar { SelectedDate = DateTime.Today }); break;
+            case "agenda": Expand(body, "Editar agenda", BuildAgenda); break;
+            case "screen-time": BuildScreenTime(body); break;
+            case "codex-limits": BuildCodexPanel(body); break;
+            case "clock-card":
+                Expand(body, "Calendário", section => section.Children.Add(new Calendar { SelectedDate = DateTime.Today }));
+                Expand(body, "Configurar clima", BuildWeather);
+                break;
             case "notes": BuildNotes(body, panel); break;
             case "weather": BuildWeather(body); break;
-            case "ai-usage": BuildOrganizationUsage(body); break;
+            case "ai-usage": Expand(body, "Configurar acesso", BuildOrganizationUsage); break;
             case "stopwatch":
                 AddAction(body, "Iniciar / pausar", () =>
                 {
@@ -83,6 +106,17 @@ public sealed partial class WidgetService
     }
 
     private static TextBlock Paragraph(string text) => new() { Text = text, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 5, 0, 8) };
+
+    private static void Expand(StackPanel body, string title, Action<StackPanel> build)
+    {
+        var section = new StackPanel { Visibility = Visibility.Collapsed };
+        AddAction(body, title, () =>
+        {
+            if (section.Children.Count == 0) build(section);
+            section.Visibility = section.Visibility == Visibility.Visible ? Visibility.Collapsed : Visibility.Visible;
+        });
+        body.Children.Add(section);
+    }
 
     private static Button AddAction(Panel host, string label, Action action)
     {

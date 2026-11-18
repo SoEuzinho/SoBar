@@ -38,6 +38,37 @@ public class DesktopTests
         Assert.False(BarPlacement.Covers(screen with { Left = 1500 }, screen));
     }
 
+    [Theory]
+    [InlineData("Top", -1185, -188, -735, -116)]
+    [InlineData("Bottom", -1185, 796, -735, 868)]
+    [InlineData("Left", -1908, 115, -1836, 565)]
+    [InlineData("Right", -83, 115, -11, 565)]
+    public void FitsFloatingContentAt150PercentWithNegativeOrigins(string position, int left, int top, int right, int bottom)
+    {
+        var edge = Enum.Parse<BarEdge>(position);
+        var bounds = new PixelRect(-1920, -200, 1, 880);
+        var strip = BarPlacement.At(bounds, edge, 72 + 24);
+        var dock = BarPlacement.FitDock(strip, edge, 300, 144, 12);
+        Assert.Equal(new PixelRect(left, top, right, bottom), dock);
+    }
+
+    [Fact]
+    public void ClampsLongDocksAndKeepsShellEdgeReachableWithStockTaskbar()
+    {
+        var bounds = new PixelRect(-1360, 312, 0, 1080);
+        var work = bounds with { Bottom = 1032 };
+        var strip = BarPlacement.At(work, BarEdge.Bottom, 64);
+        var dock = BarPlacement.FitDock(strip, BarEdge.Bottom, 9000, 96, 8);
+        Assert.Equal(new PixelRect(-1352, 976, -8, 1024), dock);
+        var reveal = BarPlacement.EdgeStrip(work, dock, BarEdge.Bottom, 3);
+        var screenEdge = BarPlacement.EdgeStrip(bounds, dock, BarEdge.Bottom, 3);
+        Assert.Equal(new PixelRect(-1352, 1029, -8, 1032), reveal);
+        Assert.True(screenEdge.Contains(-680, 1079));
+        Assert.False(screenEdge.Contains(-680, 1050));
+        Assert.True(BarPlacement.HoverArea(dock, reveal).Contains(-680, 1026));
+        Assert.Equal(strip, BarPlacement.FitDock(strip, BarEdge.Bottom, 0, 96, 0));
+    }
+
     [Fact]
     public void EnumeratesPhysicalDisplayAndLiveTaskList()
     {

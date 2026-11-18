@@ -1,6 +1,8 @@
 # Roadmap do SoBar Advanced
 
-A versão inicial concentra a barra, os widgets locais e os materiais visuais. O backlog tem **94 itens em 12 categorias**, dos quais 17 já têm um componente registrado em `WidgetService.Catalog`. A presença de um componente indica implementação no código. A aceitação em hardware específico e com contas de terceiros exige a verificação indicada em cada linha. Os outros 77 são candidatos e ficam fora do catálogo visível até terem uma fonte funcional. [Pesquisa de referência](LUMABAR_FEATURE_ANALYSIS.md) · [Resultados de validação](VALIDATION.md)
+O marco 0.1.0 concentra a barra, os widgets locais e os materiais visuais. O backlog tem **94 itens em 12 categorias**, dos quais 17 já têm um componente registrado em `WidgetService.Catalog`. A presença de um componente indica implementação no código. A aceitação em hardware específico e com contas de terceiros exige a verificação indicada em cada linha. Os outros 77 são candidatos e ficam fora do catálogo visível até terem uma fonte funcional. [Pesquisa de referência](LUMABAR_FEATURE_ANALYSIS.md) · [Resultados de validação](VALIDATION.md)
+
+A versão 0.2.0 amplia o catálogo do aplicativo para 23 componentes. A relação dos 109 itens do catálogo externo, incluindo correspondências parciais e trabalho pendente, está no [inventário de referência](CATALOGO.md).
 
 ## Marcos e responsáveis
 
